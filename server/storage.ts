@@ -1,9 +1,15 @@
-import { type Question, type InsertQuestion, type Quiz, type InsertQuiz, type QuizResult, type InsertQuizResult, questions, quizzes, quizResults } from "@shared/schema";
+import { type Question, type InsertQuestion, type Quiz, type InsertQuiz, type QuizResult, type InsertQuizResult, type User, type InsertUser, questions, quizzes, quizResults, users } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, inArray, desc, and, count } from "drizzle-orm";
 
 export interface IStorage {
+  // User methods
+  createUser(user: InsertUser): Promise<User>;
+  getUser(id: string): Promise<User | undefined>;
+  getUserBySessionId(sessionId: string): Promise<User | undefined>;
+  updateUserActivity(id: string): Promise<void>;
+  
   // Question methods
   createQuestion(question: InsertQuestion): Promise<Question>;
   getQuestion(id: string): Promise<Question | undefined>;
@@ -22,9 +28,43 @@ export interface IStorage {
   createQuizResult(result: InsertQuizResult): Promise<QuizResult>;
   getQuizResult(id: string): Promise<QuizResult | undefined>;
   getRecentQuizResults(limit?: number): Promise<QuizResult[]>;
+  getUserQuizResults(userId: string, limit?: number): Promise<QuizResult[]>;
 }
 
 export class DatabaseStorage implements IStorage {
+  // User methods
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
+  }
+
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserBySessionId(sessionId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.sessionId, sessionId));
+    return user || undefined;
+  }
+
+  async updateUserActivity(id: string): Promise<void> {
+    await db.update(users)
+      .set({ lastActiveAt: new Date().toISOString() })
+      .where(eq(users.id, id));
+  }
+
+  async getUserQuizResults(userId: string, limit: number = 10): Promise<QuizResult[]> {
+    return await db.select().from(quizResults)
+      .where(eq(quizResults.userId, userId))
+      .orderBy(desc(quizResults.completedAt))
+      .limit(limit);
+  }
+
+  // Question methods
   async createQuestion(insertQuestion: InsertQuestion): Promise<Question> {
     const [question] = await db
       .insert(questions)

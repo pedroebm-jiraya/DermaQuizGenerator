@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import AppHeader from "@/components/app-header";
 import QuizInterface from "@/components/quiz-interface";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import type { QuizWithQuestions } from "@shared/schema";
 
 export default function Quiz() {
@@ -18,18 +19,7 @@ export default function Quiz() {
 
   const handleQuizSubmit = async (answers: Record<string, string>, timeSpent: number) => {
     try {
-      const response = await fetch(`/api/quiz/${id}/results`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ answers, timeSpent }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to submit quiz');
-      }
-
+      const response = await apiRequest('POST', `/api/quiz/${id}/results`, { answers, timeSpent });
       const result = await response.json();
       setLocation(`/results/${result.id}`);
     } catch (error) {

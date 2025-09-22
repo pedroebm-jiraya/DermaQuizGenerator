@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getSessionId } from "./session";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -12,10 +13,27 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  const headers: Record<string, string> = {
+    "X-Session-Id": getSessionId(),
+  };
+  
+  let body: string | FormData | undefined;
+  
+  if (data) {
+    if (data instanceof FormData) {
+      // For FormData, don't set Content-Type - let browser set it with boundary
+      body = data;
+    } else {
+      // For JSON data
+      headers["Content-Type"] = "application/json";
+      body = JSON.stringify(data);
+    }
+  }
+
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
+    headers,
+    body,
     credentials: "include",
   });
 
@@ -30,6 +48,9 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const res = await fetch(queryKey.join("/") as string, {
+      headers: {
+        "X-Session-Id": getSessionId(),
+      },
       credentials: "include",
     });
 

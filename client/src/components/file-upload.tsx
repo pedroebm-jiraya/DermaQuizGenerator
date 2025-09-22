@@ -34,15 +34,7 @@ export default function FileUpload({ onUploadComplete }: FileUploadProps) {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('/api/questions/import', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
-
+      const response = await apiRequest('POST', '/api/questions/import', formData);
       const result = await response.json();
       
       setUploadSuccess(true);

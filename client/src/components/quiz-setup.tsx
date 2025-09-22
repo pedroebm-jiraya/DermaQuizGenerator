@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import type { QuizSetup, QuestionStats } from "@shared/schema";
 
 interface QuizSetupProps {
@@ -70,19 +71,7 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
         timedMode,
       };
 
-      const response = await fetch('/api/quiz', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(quizSetup),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message);
-      }
-
+      const response = await apiRequest('POST', '/api/quiz', quizSetup);
       const quiz = await response.json();
       onQuizStart(quiz.id);
     } catch (error) {

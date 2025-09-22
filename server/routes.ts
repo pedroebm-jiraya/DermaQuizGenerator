@@ -1,13 +1,67 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import { storage } from "./storage";
-import { insertQuestionSchema, quizSetupSchema, insertQuizResultSchema, type InsertQuestion, type QuestionStats, type QuizWithQuestions } from "@shared/schema";
+import { insertQuestionSchema, quizSetupSchema, insertQuizResultSchema, type InsertQuestion, type QuestionStats, type QuizWithQuestions, type User } from "@shared/schema";
+import { randomUUID } from "crypto";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+// User session middleware - only for API routes
+const sessionMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+  const sessionId = req.headers['x-session-id'] as string;
+  
+  if (!sessionId) {
+    // No session header - proceed without user
+    (req as any).user = null;
+    (req as any).sessionId = null;
+    next();
+    return;
+  }
+  
+  try {
+    let user = await storage.getUserBySessionId(sessionId);
+    
+    if (!user) {
+      try {
+        // Create new user for this session
+        user = await storage.createUser({
+          sessionId,
+          name: null,
+        });
+        console.log('Created new user:', user.id, 'for session:', sessionId);
+      } catch (createError: any) {
+        // Handle race condition - another request may have created the user
+        if (createError?.code === '23505') { // Unique constraint violation
+          user = await storage.getUserBySessionId(sessionId);
+          console.log('User already exists, fetched:', user?.id, 'for session:', sessionId);
+        } else {
+          throw createError;
+        }
+      }
+    } else {
+      // Update last activity
+      await storage.updateUserActivity(user.id);
+      console.log('Updated activity for user:', user.id, 'session:', sessionId);
+    }
+    
+    // Attach user to request
+    (req as any).user = user;
+    (req as any).sessionId = sessionId;
+  } catch (error) {
+    console.error('User session middleware error:', error);
+    (req as any).user = null;
+    (req as any).sessionId = sessionId;
+  }
+  
+  next();
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // Apply session middleware only to API routes
+  app.use('/api', sessionMiddleware);
   
   // Get all questions with optional filters
   app.get("/api/questions", async (req, res) => {
@@ -107,6 +161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quiz", async (req, res) => {
     try {
       const setupData = quizSetupSchema.parse(req.body);
+      const user = (req as any).user as User;
       
       // Get questions based on filters
       const filteredQuestions = await storage.getQuestionsByFilters(
@@ -125,6 +180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const selectedQuestions = shuffled.slice(0, setupData.questionCount);
 
       const quiz = await storage.createQuiz({
+        userId: user?.id,
         questionCount: setupData.questionCount,
         selectedChapters: setupData.selectedChapters,
         selectedYears: setupData.selectedYears,
@@ -164,6 +220,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quiz/:id/results", async (req, res) => {
     try {
       const { answers, timeSpent } = req.body;
+      const user = (req as any).user as User;
+      const sessionId = (req as any).sessionId as string;
       const quiz = await storage.getQuiz(req.params.id);
       
       if (!quiz) {
@@ -195,6 +253,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const result = await storage.createQuizResult({
         quizId: quiz.id,
+        userId: user?.id,
         answers,
         score: Math.round((correctAnswers / quiz.questionCount) * 100),
         totalQuestions: quiz.questionCount,
@@ -202,6 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         chapterPerformance
       });
 
+      console.log('Created quiz result:', result.id, 'for user:', user?.id, 'session:', sessionId);
       res.json(result);
     } catch (error) {
       res.status(500).json({ message: "Failed to submit quiz results" });
@@ -235,6 +295,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(results);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch latest quiz results" });
+    }
+  });
+
+  // Get user-specific quiz results
+  app.get("/api/user/results", async (req, res) => {
+    try {
+      const user = (req as any).user as User;
+      const sessionId = (req as any).sessionId as string;
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const limit = parseInt(req.query.limit as string) || 10;
+      const results = await storage.getUserQuizResults(user.id, limit);
+      console.log('Fetching user results for user:', user.id, 'session:', sessionId, 'found:', results.length, 'results');
+      res.json(results);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch user quiz results" });
+    }
+  });
+
+  // Get user session info
+  app.get("/api/user/session", async (req, res) => {
+    try {
+      const user = (req as any).user as User;
+      const sessionId = (req as any).sessionId as string;
+      
+      res.json({
+        user: user || null,
+        sessionId
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch session info" });
     }
   });
 
