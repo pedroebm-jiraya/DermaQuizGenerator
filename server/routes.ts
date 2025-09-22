@@ -316,17 +316,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get user session info
-  app.get("/api/user/session", async (req, res) => {
+  // Get user analytics data
+  app.get("/api/user/analytics", async (req, res) => {
     try {
       const user = (req as any).user as User;
-      const sessionId = (req as any).sessionId as string;
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+      
+      const results = await storage.getUserQuizResults(user.id, 100); // Get more results for analytics
+      
+      // Calculate performance trends (last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const recentResults = results.filter(result => 
+        new Date(result.completedAt) >= thirtyDaysAgo
+      );
+      
+      // Performance over time
+      const performanceTrend = recentResults
+        .sort((a, b) => new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime())
+        .map(result => ({
+          date: result.completedAt,
+          score: result.score,
+          timeSpent: result.timeSpent
+        }));
+      
+      // Chapter performance aggregation
+      const chapterStats: Record<string, { total: number; correct: number; attempts: number }> = {};
+      
+      results.forEach(result => {
+        Object.entries(result.chapterPerformance).forEach(([chapter, performance]) => {
+          if (!chapterStats[chapter]) {
+            chapterStats[chapter] = { total: 0, correct: 0, attempts: 0 };
+          }
+          chapterStats[chapter].total += performance.total;
+          chapterStats[chapter].correct += performance.correct;
+          chapterStats[chapter].attempts += 1;
+        });
+      });
+      
+      const chapterAnalytics = Object.entries(chapterStats).map(([chapter, stats]) => ({
+        chapter,
+        averageScore: Math.round((stats.correct / stats.total) * 100),
+        totalQuestions: stats.total,
+        correctAnswers: stats.correct,
+        attempts: stats.attempts
+      }));
+      
+      // Overall statistics
+      const totalQuizzes = results.length;
+      const averageScore = totalQuizzes > 0 
+        ? Math.round(results.reduce((sum, result) => sum + result.score, 0) / totalQuizzes)
+        : 0;
+      const totalTimeSpent = results.reduce((sum, result) => sum + result.timeSpent, 0);
+      const totalQuestions = results.reduce((sum, result) => sum + result.totalQuestions, 0);
+      
+      // Best and worst performing chapters
+      const sortedChapters = chapterAnalytics.sort((a, b) => b.averageScore - a.averageScore);
+      const bestChapter = sortedChapters[0];
+      const worstChapter = sortedChapters[sortedChapters.length - 1];
+      
+      res.json({
+        overview: {
+          totalQuizzes,
+          averageScore,
+          totalTimeSpent,
+          totalQuestions,
+          bestChapter,
+          worstChapter
+        },
+        performanceTrend,
+        chapterAnalytics,
+        recentActivity: recentResults.slice(0, 5)
+      });
+    } catch (error) {
+      console.error('Analytics error:', error);
+      res.status(500).json({ message: "Failed to fetch user analytics" });
+    }
+  });
+
+  // Get user session info - creates session if none exists
+  app.get("/api/user/session", async (req, res) => {
+    try {
+      let user = (req as any).user as User;
+      let sessionId = (req as any).sessionId as string;
+      
+      // If no session exists, create one
+      if (!user && !sessionId) {
+        sessionId = randomUUID();
+        
+        try {
+          user = await storage.createUser({
+            sessionId,
+            name: null,
+          });
+          console.log('Created new user for session endpoint:', user.id, 'for session:', sessionId);
+        } catch (createError: any) {
+          // Handle race condition
+          if (createError?.code === '23505') {
+            user = await storage.getUserBySessionId(sessionId);
+            console.log('User already exists for session endpoint, fetched:', user?.id, 'for session:', sessionId);
+          } else {
+            throw createError;
+          }
+        }
+      }
       
       res.json({
         user: user || null,
         sessionId
       });
     } catch (error) {
+      console.error('Session endpoint error:', error);
       res.status(500).json({ message: "Failed to fetch session info" });
     }
   });

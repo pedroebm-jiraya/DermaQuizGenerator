@@ -6,8 +6,8 @@ export default function AppHeader() {
   
   const navItems = [
     { href: "/", label: "Início", active: location === "/" },
-    { href: "#", label: "Simulados", active: false },
-    { href: "#", label: "Histórico", active: false },
+    { href: "/", label: "Simulados", active: location === "/" },
+    { href: "/analytics", label: "Histórico", active: location === "/analytics" },
     { href: "#", label: "Configurações", active: false },
   ];
 
@@ -30,9 +30,9 @@ export default function AppHeader() {
           </Link>
           
           <nav className="hidden md:flex items-center space-x-6">
-            {navItems.map((item) => (
+            {navItems.map((item, index) => (
               <Link
-                key={item.href}
+                key={`${item.href}-${index}`}
                 href={item.href}
                 data-testid={`nav-link-${item.label.toLowerCase()}`}
               >
