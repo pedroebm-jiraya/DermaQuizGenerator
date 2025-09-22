@@ -218,6 +218,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Development endpoint to add sample questions for testing
+  if (process.env.NODE_ENV === 'development') {
+    app.post("/api/questions/sample", async (req, res) => {
+      try {
+        const sampleQuestions: InsertQuestion[] = [
+          {
+            year: 2023,
+            statement: "Qual é o principal tratamento para dermatite atópica leve a moderada?",
+            options: ["Corticosteroides tópicos", "Antibióticos sistêmicos", "Antifúngicos tópicos", "Imunomoduladores orais"],
+            correctAnswer: "A",
+            chapter: "Dermatoses Inflamatórias",
+            bookSection: "Eczemas"
+          },
+          {
+            year: 2023,
+            statement: "O melanoma maligno tem como principal característica:",
+            options: ["Crescimento lento", "Coloração uniforme", "Assimetria e irregularidade", "Superfície lisa"],
+            correctAnswer: "C",
+            chapter: "Neoplasias Cutâneas",
+            bookSection: "Tumores Malignos"
+          },
+          {
+            year: 2022,
+            statement: "A candidíase cutânea é causada por:",
+            options: ["Vírus", "Bactéria", "Fungo", "Parasita"],
+            correctAnswer: "C",
+            chapter: "Doenças Infecciosas",
+            bookSection: "Micoses Superficiais"
+          },
+          {
+            year: 2022,
+            statement: "O vitiligo é caracterizado por:",
+            options: ["Hiperpigmentação localizada", "Despigmentação em placas", "Descamação intensa", "Formação de vesículas"],
+            correctAnswer: "B",
+            chapter: "Distúrbios da Pigmentação",
+            bookSection: "Hipopigmentação"
+          },
+          {
+            year: 2024,
+            statement: "A psoríase em placas apresenta:",
+            options: ["Vesículas agrupadas", "Placas eritematosas descamativas", "Nódulos subcutâneos", "Úlceras profundas"],
+            correctAnswer: "B",
+            chapter: "Dermatoses Inflamatórias",
+            bookSection: "Psoríase"
+          }
+        ];
+
+        await storage.importQuestions(sampleQuestions);
+        res.json({ message: "Sample questions added", count: sampleQuestions.length });
+      } catch (error) {
+        res.status(500).json({ message: "Failed to add sample questions" });
+      }
+    });
+  }
+
   const httpServer = createServer(app);
   return httpServer;
 }
