@@ -218,6 +218,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get quiz results (alternative endpoint)
+  app.get("/api/quiz_results", async (req, res) => {
+    try {
+      const results = await storage.getRecentQuizResults(10);
+      res.json(results);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch quiz results" });
+    }
+  });
+
+  // Get latest quiz results
+  app.get("/api/quiz_results/latest", async (req, res) => {
+    try {
+      const results = await storage.getRecentQuizResults(5);
+      res.json(results);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch latest quiz results" });
+    }
+  });
+
   // Development endpoint to add sample questions for testing
   if (process.env.NODE_ENV === 'development') {
     app.post("/api/questions/sample", async (req, res) => {

@@ -1,5 +1,7 @@
-import { type Question, type InsertQuestion, type Quiz, type InsertQuiz, type QuizResult, type InsertQuizResult } from "@shared/schema";
+import { type Question, type InsertQuestion, type Quiz, type InsertQuiz, type QuizResult, type InsertQuizResult, questions, quizzes, quizResults } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, inArray, desc, and, count } from "drizzle-orm";
 
 export interface IStorage {
   // Question methods
@@ -22,94 +24,98 @@ export interface IStorage {
   getRecentQuizResults(limit?: number): Promise<QuizResult[]>;
 }
 
-export class MemStorage implements IStorage {
-  private questions: Map<string, Question>;
-  private quizzes: Map<string, Quiz>;
-  private quizResults: Map<string, QuizResult>;
-
-  constructor() {
-    this.questions = new Map();
-    this.quizzes = new Map();
-    this.quizResults = new Map();
-  }
-
+export class DatabaseStorage implements IStorage {
   async createQuestion(insertQuestion: InsertQuestion): Promise<Question> {
-    const id = randomUUID();
-    const question: Question = { ...insertQuestion, id } as Question;
-    this.questions.set(id, question);
+    const [question] = await db
+      .insert(questions)
+      .values({
+        ...insertQuestion,
+        options: insertQuestion.options as string[]
+      })
+      .returning();
     return question;
   }
 
   async getQuestion(id: string): Promise<Question | undefined> {
-    return this.questions.get(id);
+    const [question] = await db.select().from(questions).where(eq(questions.id, id));
+    return question || undefined;
   }
 
   async getAllQuestions(): Promise<Question[]> {
-    return Array.from(this.questions.values());
+    return await db.select().from(questions);
   }
 
   async getQuestionsByFilters(chapters: string[], years: number[]): Promise<Question[]> {
-    return Array.from(this.questions.values()).filter(
-      (question) => 
-        chapters.includes(question.chapter) && years.includes(question.year)
-    );
+    return await db.select().from(questions)
+      .where(
+        and(
+          inArray(questions.chapter, chapters),
+          inArray(questions.year, years)
+        )
+      );
   }
 
   async getQuestionsCount(): Promise<number> {
-    return this.questions.size;
+    const [result] = await db.select({ count: count() }).from(questions);
+    return result.count;
   }
 
   async getChapters(): Promise<string[]> {
-    const chapters = Array.from(this.questions.values()).map(q => q.chapter);
-    return Array.from(new Set(chapters));
+    const result = await db.selectDistinct({ chapter: questions.chapter }).from(questions);
+    return result.map(r => r.chapter);
   }
 
   async getYears(): Promise<number[]> {
-    const years = Array.from(this.questions.values()).map(q => q.year);
-    return Array.from(new Set(years)).sort((a, b) => b - a);
+    const result = await db.selectDistinct({ year: questions.year }).from(questions).orderBy(desc(questions.year));
+    return result.map(r => r.year);
   }
 
-  async importQuestions(questions: InsertQuestion[]): Promise<void> {
-    for (const question of questions) {
-      await this.createQuestion(question);
+  async importQuestions(insertQuestions: InsertQuestion[]): Promise<void> {
+    if (insertQuestions.length > 0) {
+      const formattedQuestions = insertQuestions.map(q => ({
+        ...q,
+        options: q.options as string[]
+      }));
+      await db.insert(questions).values(formattedQuestions);
     }
   }
 
   async createQuiz(insertQuiz: InsertQuiz): Promise<Quiz> {
-    const id = randomUUID();
-    const quiz: Quiz = { 
-      ...insertQuiz, 
-      id,
-      createdAt: new Date().toISOString()
-    } as Quiz;
-    this.quizzes.set(id, quiz);
+    const [quiz] = await db
+      .insert(quizzes)
+      .values({
+        ...insertQuiz,
+        selectedChapters: insertQuiz.selectedChapters as string[],
+        selectedYears: insertQuiz.selectedYears as number[],
+        questionIds: insertQuiz.questionIds as string[]
+      })
+      .returning();
     return quiz;
   }
 
   async getQuiz(id: string): Promise<Quiz | undefined> {
-    return this.quizzes.get(id);
+    const [quiz] = await db.select().from(quizzes).where(eq(quizzes.id, id));
+    return quiz || undefined;
   }
 
   async createQuizResult(insertResult: InsertQuizResult): Promise<QuizResult> {
-    const id = randomUUID();
-    const result: QuizResult = { 
-      ...insertResult, 
-      id,
-      completedAt: new Date().toISOString()
-    };
-    this.quizResults.set(id, result);
+    const [result] = await db
+      .insert(quizResults)
+      .values(insertResult)
+      .returning();
     return result;
   }
 
   async getQuizResult(id: string): Promise<QuizResult | undefined> {
-    return this.quizResults.get(id);
+    const [result] = await db.select().from(quizResults).where(eq(quizResults.id, id));
+    return result || undefined;
   }
 
   async getRecentQuizResults(limit: number = 10): Promise<QuizResult[]> {
-    return Array.from(this.quizResults.values())
-      .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
-      .slice(0, limit);
+    return await db.select().from(quizResults)
+      .orderBy(desc(quizResults.completedAt))
+      .limit(limit);
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

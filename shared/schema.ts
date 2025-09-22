@@ -20,7 +20,7 @@ export const quizzes = pgTable("quizzes", {
   selectedYears: jsonb("selected_years").notNull().$type<number[]>(),
   timedMode: boolean("timed_mode").notNull().default(true),
   questionIds: jsonb("question_ids").notNull().$type<string[]>(),
-  createdAt: text("created_at").notNull().default(sql`datetime('now')`),
+  createdAt: text("created_at").notNull().default(sql`now()`),
 });
 
 export const quizResults = pgTable("quiz_results", {
@@ -31,7 +31,7 @@ export const quizResults = pgTable("quiz_results", {
   totalQuestions: integer("total_questions").notNull(),
   timeSpent: integer("time_spent").notNull(), // in seconds
   chapterPerformance: jsonb("chapter_performance").notNull().$type<Record<string, { correct: number; total: number }>>(),
-  completedAt: text("completed_at").notNull().default(sql`datetime('now')`),
+  completedAt: text("completed_at").notNull().default(sql`now()`),
 });
 
 export const insertQuestionSchema = createInsertSchema(questions).omit({
