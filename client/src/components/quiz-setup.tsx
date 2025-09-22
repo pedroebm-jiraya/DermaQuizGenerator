@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
-import type { QuizSetup } from "@shared/schema";
+import type { QuizSetup, QuestionStats } from "@shared/schema";
 
 interface QuizSetupProps {
   onQuizStart: (quizId: string) => void;
@@ -21,7 +21,7 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
   
   const { toast } = useToast();
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery<QuestionStats>({
     queryKey: ['/api/questions/stats'],
   });
 

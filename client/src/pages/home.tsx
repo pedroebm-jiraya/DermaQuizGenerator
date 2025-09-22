@@ -6,16 +6,17 @@ import QuizSetup from "@/components/quiz-setup";
 import FileUpload from "@/components/file-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import type { QuestionStats, QuizResult } from "@shared/schema";
 
 export default function Home() {
   const [, setLocation] = useLocation();
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<QuestionStats>({
     queryKey: ['/api/questions/stats', refreshKey],
   });
 
-  const { data: recentResults } = useQuery({
+  const { data: recentResults } = useQuery<QuizResult[]>({
     queryKey: ['/api/results'],
   });
 

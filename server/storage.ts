@@ -35,7 +35,7 @@ export class MemStorage implements IStorage {
 
   async createQuestion(insertQuestion: InsertQuestion): Promise<Question> {
     const id = randomUUID();
-    const question: Question = { ...insertQuestion, id };
+    const question: Question = { ...insertQuestion, id } as Question;
     this.questions.set(id, question);
     return question;
   }
@@ -81,7 +81,7 @@ export class MemStorage implements IStorage {
       ...insertQuiz, 
       id,
       createdAt: new Date().toISOString()
-    };
+    } as Quiz;
     this.quizzes.set(id, quiz);
     return quiz;
   }

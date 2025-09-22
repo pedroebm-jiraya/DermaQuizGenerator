@@ -4,13 +4,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import AppHeader from "@/components/app-header";
 import QuizInterface from "@/components/quiz-interface";
 import { useToast } from "@/hooks/use-toast";
+import type { QuizWithQuestions } from "@shared/schema";
 
 export default function Quiz() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const { data: quizData, isLoading, error } = useQuery({
+  const { data: quizData, isLoading, error } = useQuery<QuizWithQuestions>({
     queryKey: [`/api/quiz/${id}`],
     enabled: !!id,
   });

@@ -68,3 +68,15 @@ export type InsertQuizResult = z.infer<typeof insertQuizResultSchema>;
 export type QuizResult = typeof quizResults.$inferSelect;
 export type QuizSetup = z.infer<typeof quizSetupSchema>;
 export type QuizAnswer = z.infer<typeof quizAnswerSchema>;
+
+// API response types
+export interface QuestionStats {
+  totalQuestions: number;
+  chapters: string[];
+  years: number[];
+}
+
+export interface QuizWithQuestions {
+  quiz: Quiz;
+  questions: Question[];
+}
