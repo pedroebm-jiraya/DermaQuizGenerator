@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import { storage } from "./storage";
-import { insertQuestionSchema, quizSetupSchema, insertQuizResultSchema, type InsertQuestion } from "@shared/schema";
+import { insertQuestionSchema, quizSetupSchema, insertQuizResultSchema, type InsertQuestion, type QuestionStats, type QuizWithQuestions } from "@shared/schema";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
