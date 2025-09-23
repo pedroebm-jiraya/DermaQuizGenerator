@@ -196,7 +196,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Use available questions or requested count, whichever is smaller
+      // Check if we have fewer questions than requested
+      if (filteredQuestions.length < setupData.questionCount) {
+        return res.status(200).json({
+          requiresConfirmation: true,
+          availableQuestions: filteredQuestions.length,
+          requestedQuestions: setupData.questionCount,
+          message: `Encontradas ${filteredQuestions.length} questões com os filtros selecionados. Deseja prosseguir com ${filteredQuestions.length} questões?`
+        });
+      }
+
+      // Normal case: we have enough questions
+      const actualQuestionCount = setupData.questionCount;
+
+      // Randomly select questions
+      const shuffled = filteredQuestions.sort(() => 0.5 - Math.random());
+      const selectedQuestions = shuffled.slice(0, actualQuestionCount);
+
+      const quiz = await storage.createQuiz({
+        userId: user?.id,
+        questionCount: actualQuestionCount,
+        selectedChapters: setupData.selectedChapters,
+        selectedYears: setupData.selectedYears,
+        timedMode: setupData.timedMode,
+        questionIds: selectedQuestions.map(q => q.id)
+      });
+
+      res.json(quiz);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to create quiz" });
+    }
+  });
+
+  // Confirm quiz creation with fewer questions
+  app.post("/api/quiz/confirm", async (req, res) => {
+    try {
+      const setupData = quizSetupSchema.parse(req.body);
+      const user = (req as any).user as User;
+      
+      // Get questions based on filters
+      const filteredQuestions = await storage.getQuestionsByFilters(
+        setupData.selectedChapters, 
+        setupData.selectedYears
+      );
+
+      if (filteredQuestions.length === 0) {
+        return res.status(400).json({ 
+          message: `Nenhuma questão encontrada para os filtros selecionados` 
+        });
+      }
+
+      // Use available questions but don't exceed originally requested count
       const actualQuestionCount = Math.min(filteredQuestions.length, setupData.questionCount);
 
       // Randomly select questions

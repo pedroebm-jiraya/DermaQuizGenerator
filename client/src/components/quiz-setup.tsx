@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Play, Filter, Database, ChartLine } from "lucide-react";
+import { Play, Filter, Database, ChartLine, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { QuizSetup, QuestionStats } from "@shared/schema";
@@ -19,6 +20,12 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
   const [selectedChapters, setSelectedChapters] = useState<string[]>([]);
   const [selectedYears, setSelectedYears] = useState<number[]>([2024]);
   const [creating, setCreating] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmationData, setConfirmationData] = useState<{
+    availableQuestions: number;
+    requestedQuestions: number;
+    message: string;
+  } | null>(null);
   
   const { toast } = useToast();
 
@@ -72,6 +79,42 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
       };
 
       const response = await apiRequest('POST', '/api/quiz', quizSetup);
+      const data = await response.json();
+      
+      if (data.requiresConfirmation) {
+        setConfirmationData({
+          availableQuestions: data.availableQuestions,
+          requestedQuestions: data.requestedQuestions,
+          message: data.message
+        });
+        setShowConfirmDialog(true);
+      } else {
+        onQuizStart(data.id);
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao criar simulado",
+        description: error instanceof Error ? error.message : "Tente novamente",
+        variant: "destructive",
+      });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleConfirmQuiz = async () => {
+    setShowConfirmDialog(false);
+    setCreating(true);
+
+    try {
+      const quizSetup: QuizSetup = {
+        questionCount,
+        selectedChapters,
+        selectedYears,
+        timedMode,
+      };
+
+      const response = await apiRequest('POST', '/api/quiz/confirm', quizSetup);
       const quiz = await response.json();
       onQuizStart(quiz.id);
     } catch (error) {
@@ -83,6 +126,11 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleCancelConfirmation = () => {
+    setShowConfirmDialog(false);
+    setConfirmationData(null);
   };
 
   if (isLoading) {
@@ -285,6 +333,53 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent data-testid="dialog-quiz-confirmation">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-warning/10 rounded-full flex items-center justify-center">
+                <AlertTriangle className="text-warning w-6 h-6" />
+              </div>
+              <div>
+                <AlertDialogTitle data-testid="text-dialog-title">
+                  Poucas questões disponíveis
+                </AlertDialogTitle>
+                <AlertDialogDescription data-testid="text-dialog-description">
+                  {confirmationData?.message}
+                </AlertDialogDescription>
+              </div>
+            </div>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <div className="bg-muted/30 border border-border rounded-lg p-4">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Questões solicitadas:</span>
+                <span className="font-medium" data-testid="text-requested-count">{confirmationData?.requestedQuestions}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm mt-2">
+                <span className="text-muted-foreground">Questões disponíveis:</span>
+                <span className="font-medium text-success" data-testid="text-available-count">{confirmationData?.availableQuestions}</span>
+              </div>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={handleCancelConfirmation}
+              data-testid="button-cancel-quiz"
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmQuiz}
+              data-testid="button-confirm-quiz"
+            >
+              Prosseguir com {confirmationData?.availableQuestions} questões
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
