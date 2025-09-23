@@ -112,26 +112,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const worksheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(worksheet);
 
+      console.log(`Processing ${data.length} rows from Excel file`);
+      if (data.length > 0) {
+        console.log('Column names in first row:', Object.keys(data[0] as any));
+        console.log('First row data sample:', JSON.stringify(data[0], null, 2));
+        console.log('Second row data sample:', data.length > 1 ? JSON.stringify(data[1], null, 2) : 'No second row');
+      }
+
       const questions: InsertQuestion[] = [];
 
       for (const row of data as any[]) {
-        // Assuming columns: ano, enunciado, alternativa_a, alternativa_b, alternativa_c, alternativa_d, alternativa_e, gabarito, capitulo, parte
+        // Handle both old and new column formats
         const options: string[] = [];
         
-        if (row.alternativa_a) options.push(row.alternativa_a);
-        if (row.alternativa_b) options.push(row.alternativa_b);
-        if (row.alternativa_c) options.push(row.alternativa_c);
-        if (row.alternativa_d) options.push(row.alternativa_d);
-        if (row.alternativa_e) options.push(row.alternativa_e);
+        // Try new format first (with spaces)
+        const altA = row[' Alternativa a '] || row['alternativa_a'];
+        const altB = row[' Alternativa b '] || row['alternativa_b'];
+        const altC = row[' Alternativa c '] || row['alternativa_c'];
+        const altD = row[' Alternativa d '] || row['alternativa_d'];
+        const altE = row[' Alternativa e '] || row['alternativa_e'];
+        
+        if (altA) options.push(altA.toString().trim());
+        if (altB) options.push(altB.toString().trim());
+        if (altC) options.push(altC.toString().trim());
+        if (altD) options.push(altD.toString().trim());
+        if (altE) options.push(altE.toString().trim());
 
-        if (row.enunciado && row.gabarito && row.capitulo && options.length >= 4) {
+        // Get other fields with fallbacks
+        const statement = row[' Enunciado da Questão '] || row['enunciado'];
+        const answer = row[' Gabarito '] || row['gabarito'];
+        const chapter = row['Tema'] || row['capitulo'];
+        const year = row[' Ano da Prova '] || row['ano'];
+        const bookSection = row['Parte'] || row['parte'];
+
+        if (statement && answer && chapter && options.length >= 4) {
           const question: InsertQuestion = {
-            year: parseInt(row.ano) || 2024,
-            statement: row.enunciado,
+            year: parseInt(year) || 2024,
+            statement: statement.toString().trim(),
             options,
-            correctAnswer: row.gabarito.toUpperCase(),
-            chapter: row.capitulo,
-            bookSection: row.parte || 'Não especificado'
+            correctAnswer: answer.toString().toUpperCase().trim(),
+            chapter: chapter.toString().trim(),
+            bookSection: bookSection ? bookSection.toString().trim() : 'Não especificado'
           };
 
           const validationResult = insertQuestionSchema.safeParse(question);
@@ -169,19 +190,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         setupData.selectedYears
       );
 
-      if (filteredQuestions.length < setupData.questionCount) {
+      if (filteredQuestions.length === 0) {
         return res.status(400).json({ 
-          message: `Only ${filteredQuestions.length} questions available for selected filters` 
+          message: `Nenhuma questão encontrada para os filtros selecionados` 
         });
       }
 
+      // Use available questions or requested count, whichever is smaller
+      const actualQuestionCount = Math.min(filteredQuestions.length, setupData.questionCount);
+
       // Randomly select questions
       const shuffled = filteredQuestions.sort(() => 0.5 - Math.random());
-      const selectedQuestions = shuffled.slice(0, setupData.questionCount);
+      const selectedQuestions = shuffled.slice(0, actualQuestionCount);
 
       const quiz = await storage.createQuiz({
         userId: user?.id,
-        questionCount: setupData.questionCount,
+        questionCount: actualQuestionCount,
         selectedChapters: setupData.selectedChapters,
         selectedYears: setupData.selectedYears,
         timedMode: setupData.timedMode,
@@ -525,22 +549,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let validationErrors: any[] = [];
 
       for (const row of data as any[]) {
+        // Handle both old and new column formats
         const options: string[] = [];
         
-        if (row.alternativa_a) options.push(row.alternativa_a);
-        if (row.alternativa_b) options.push(row.alternativa_b);
-        if (row.alternativa_c) options.push(row.alternativa_c);
-        if (row.alternativa_d) options.push(row.alternativa_d);
-        if (row.alternativa_e) options.push(row.alternativa_e);
+        // Try new format first (with spaces)
+        const altA = row[' Alternativa a '] || row['alternativa_a'];
+        const altB = row[' Alternativa b '] || row['alternativa_b'];
+        const altC = row[' Alternativa c '] || row['alternativa_c'];
+        const altD = row[' Alternativa d '] || row['alternativa_d'];
+        const altE = row[' Alternativa e '] || row['alternativa_e'];
+        
+        if (altA) options.push(altA.toString().trim());
+        if (altB) options.push(altB.toString().trim());
+        if (altC) options.push(altC.toString().trim());
+        if (altD) options.push(altD.toString().trim());
+        if (altE) options.push(altE.toString().trim());
 
-        if (row.enunciado && row.gabarito && row.capitulo && options.length >= 4) {
+        // Get other fields with fallbacks
+        const statement = row[' Enunciado da Questão '] || row['enunciado'];
+        const answer = row[' Gabarito '] || row['gabarito'];
+        const chapter = row['Tema'] || row['capitulo'];
+        const year = row[' Ano da Prova '] || row['ano'];
+        const bookSection = row['Parte'] || row['parte'];
+
+        if (statement && answer && chapter && options.length >= 4) {
           const question: InsertQuestion = {
-            year: parseInt(row.ano) || 2024,
-            statement: row.enunciado,
+            year: parseInt(year) || 2024,
+            statement: statement.toString().trim(),
             options,
-            correctAnswer: row.gabarito.toUpperCase(),
-            chapter: row.capitulo,
-            bookSection: row.parte || 'Não especificado'
+            correctAnswer: answer.toString().toUpperCase().trim(),
+            chapter: chapter.toString().trim(),
+            bookSection: bookSection ? bookSection.toString().trim() : 'Não especificado'
           };
 
           const validationResult = insertQuestionSchema.safeParse(question);
@@ -548,9 +587,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             questions.push(validationResult.data);
           } else {
             validationErrors.push({
-              row: row,
+              question: question,
               errors: validationResult.error.errors
             });
+            if (validationErrors.length <= 5) { // Log first 5 validation errors
+              console.log('Validation error for question:', JSON.stringify(question, null, 2));
+              console.log('Validation errors:', JSON.stringify(validationResult.error.errors, null, 2));
+            }
+          }
+        } else {
+          if (validationErrors.length <= 3) { // Log first 3 missing field errors
+            console.log('Missing required fields - statement:', !!statement, 'answer:', !!answer, 'chapter:', !!chapter, 'options count:', options.length);
+            console.log('Row data:', JSON.stringify(row, null, 2));
           }
         }
       }
