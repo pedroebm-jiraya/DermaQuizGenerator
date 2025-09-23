@@ -152,33 +152,35 @@ export default function QuizInterface({
             value={answers[currentQuestion.id] || ""}
             onValueChange={(value) => handleAnswerSelect(currentQuestion.id, value)}
           >
-            {currentQuestion.options.map((option, index) => {
-              const optionLabel = String.fromCharCode(65 + index); // A, B, C, D, E
-              return (
-                <div
-                  key={index}
-                  className="flex items-start space-x-3 p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors group"
-                  data-testid={`option-${optionLabel.toLowerCase()}`}
-                >
-                  <RadioGroupItem
-                    value={optionLabel}
-                    id={`option-${optionLabel}`}
-                    className="mt-1"
-                  />
-                  <Label
-                    htmlFor={`option-${optionLabel}`}
-                    className="flex-1 cursor-pointer"
+            {currentQuestion.options
+              .filter((option) => option && option.trim() !== "")
+              .map((option, index) => {
+                const optionLabel = String.fromCharCode(65 + index); // A, B, C, D, E
+                return (
+                  <div
+                    key={index}
+                    className="flex items-start space-x-3 p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors group"
+                    data-testid={`option-${optionLabel.toLowerCase()}`}
                   >
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium text-primary">{optionLabel})</span>
-                      <span className="text-foreground group-hover:text-foreground">
-                        {option}
-                      </span>
-                    </div>
-                  </Label>
-                </div>
-              );
-            })}
+                    <RadioGroupItem
+                      value={optionLabel}
+                      id={`option-${optionLabel}`}
+                      className="mt-1"
+                    />
+                    <Label
+                      htmlFor={`option-${optionLabel}`}
+                      className="flex-1 cursor-pointer"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium text-primary">{optionLabel})</span>
+                        <span className="text-foreground group-hover:text-foreground">
+                          {option}
+                        </span>
+                      </div>
+                    </Label>
+                  </div>
+                );
+              })}
           </RadioGroup>
         </div>
 
