@@ -85,6 +85,25 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
     return stats.years.length > 0 && stats.years.every(year => selectedYears.includes(year));
   };
 
+  const handleSelectPartChapters = (partChapters: string[]) => {
+    const allPartChaptersSelected = partChapters.every(chapter => selectedChapters.includes(chapter));
+    
+    if (allPartChaptersSelected) {
+      // Remove all chapters from this part
+      setSelectedChapters(prev => prev.filter(chapter => !partChapters.includes(chapter)));
+    } else {
+      // Add all chapters from this part
+      setSelectedChapters(prev => {
+        const newChapters = partChapters.filter(chapter => !prev.includes(chapter));
+        return [...prev, ...newChapters];
+      });
+    }
+  };
+
+  const areAllPartChaptersSelected = (partChapters: string[]) => {
+    return partChapters.length > 0 && partChapters.every(chapter => selectedChapters.includes(chapter));
+  };
+
   const handleStartQuiz = async () => {
     if (selectedChapters.length === 0) {
       toast({
@@ -345,10 +364,18 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
                     <div className="max-h-64 overflow-y-auto space-y-4 border border-border rounded-lg p-4" data-testid="container-chapters">
                       {stats.bookParts.map((part: BookPartWithChapters) => (
                         <div key={part.id} className="space-y-2">
-                          <h4 className="text-sm font-semibold text-primary border-b border-border pb-1">
-                            {part.name}
-                          </h4>
-                          <div className="space-y-1 pl-2">
+                          <div className="flex items-center space-x-3 border-b border-border pb-2">
+                            <Checkbox
+                              checked={areAllPartChaptersSelected(part.chapters)}
+                              onCheckedChange={() => handleSelectPartChapters(part.chapters)}
+                              data-testid={`checkbox-part-${part.id}`}
+                            />
+                            <h4 className="text-sm font-semibold text-primary cursor-pointer" 
+                                onClick={() => handleSelectPartChapters(part.chapters)}>
+                              {part.name}
+                            </h4>
+                          </div>
+                          <div className="space-y-1 pl-6">
                             {part.chapters.map((chapter: string) => (
                               <label
                                 key={chapter}

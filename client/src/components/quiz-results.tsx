@@ -64,9 +64,11 @@ export default function QuizResults({
           </div>
           <div className="text-center">
             <div className="text-3xl font-bold text-secondary mb-2" data-testid="text-time-spent">
-              {formatTime(result.timeSpent)}
+              {formatTime((result as any).elapsedTime || result.timeSpent)}
             </div>
-            <p className="text-muted-foreground">Tempo Gasto</p>
+            <p className="text-muted-foreground">
+              {(result as any).elapsedTime ? "Tempo Real Decorrido" : "Tempo Gasto"}
+            </p>
           </div>
         </div>
 

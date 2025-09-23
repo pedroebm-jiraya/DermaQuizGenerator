@@ -25,10 +25,12 @@ export interface IStorage {
   // Quiz methods
   createQuiz(quiz: InsertQuiz): Promise<Quiz>;
   getQuiz(id: string): Promise<Quiz | undefined>;
+  updateQuizEndTime(id: string, endTime: string): Promise<void>;
   
   // Quiz result methods
   createQuizResult(result: InsertQuizResult): Promise<QuizResult>;
   getQuizResult(id: string): Promise<QuizResult | undefined>;
+  getQuizResultByQuizId(quizId: string): Promise<QuizResult | undefined>;
   getRecentQuizResults(limit?: number): Promise<QuizResult[]>;
   getUserQuizResults(userId: string, limit?: number): Promise<QuizResult[]>;
 }
@@ -181,6 +183,12 @@ export class DatabaseStorage implements IStorage {
     return quiz || undefined;
   }
 
+  async updateQuizEndTime(id: string, endTime: string): Promise<void> {
+    await db.update(quizzes)
+      .set({ endTime })
+      .where(eq(quizzes.id, id));
+  }
+
   async createQuizResult(insertResult: InsertQuizResult): Promise<QuizResult> {
     const [result] = await db
       .insert(quizResults)
@@ -191,6 +199,11 @@ export class DatabaseStorage implements IStorage {
 
   async getQuizResult(id: string): Promise<QuizResult | undefined> {
     const [result] = await db.select().from(quizResults).where(eq(quizResults.id, id));
+    return result || undefined;
+  }
+
+  async getQuizResultByQuizId(quizId: string): Promise<QuizResult | undefined> {
+    const [result] = await db.select().from(quizResults).where(eq(quizResults.quizId, quizId));
     return result || undefined;
   }
 

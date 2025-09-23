@@ -31,6 +31,8 @@ export const quizzes = pgTable("quizzes", {
   selectedYears: jsonb("selected_years").notNull().$type<number[]>(),
   timedMode: boolean("timed_mode").notNull().default(true),
   questionIds: jsonb("question_ids").notNull().$type<string[]>(),
+  startTime: text("start_time"),
+  endTime: text("end_time"),
   createdAt: text("created_at").notNull().default(sql`now()`),
 });
 

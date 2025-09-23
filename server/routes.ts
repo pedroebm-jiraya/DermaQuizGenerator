@@ -141,7 +141,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         selectedChapters: setupData.selectedChapters,
         selectedYears: setupData.selectedYears,
         timedMode: setupData.timedMode,
-        questionIds: selectedQuestions.map(q => q.id)
+        questionIds: selectedQuestions.map(q => q.id),
+        startTime: new Date().toISOString()
       });
 
       res.json(quiz);
@@ -181,7 +182,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         selectedChapters: setupData.selectedChapters,
         selectedYears: setupData.selectedYears,
         timedMode: setupData.timedMode,
-        questionIds: selectedQuestions.map(q => q.id)
+        questionIds: selectedQuestions.map(q => q.id),
+        startTime: new Date().toISOString()
       });
 
       res.json(quiz);
@@ -223,6 +225,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!quiz) {
         return res.status(404).json({ message: "Quiz not found" });
       }
+
+      // Update quiz with end time
+      await storage.updateQuizEndTime(quiz.id, new Date().toISOString());
 
       // Calculate score and chapter performance
       let correctAnswers = 0;
@@ -490,6 +495,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
+  // Get quiz review data (questions with correct answers and user answers)
+  app.get("/api/quiz/:id/review", async (req, res) => {
+    try {
+      // First, try to get quiz result by the ID directly (in case it's a quiz result ID)
+      let quizResult = await storage.getQuizResult(req.params.id);
+      let quiz = null;
+
+      if (quizResult) {
+        // If we found a quiz result, get the associated quiz
+        quiz = await storage.getQuiz(quizResult.quizId);
+      } else {
+        // If not found, try to treat the ID as a quiz ID
+        quiz = await storage.getQuiz(req.params.id);
+        if (quiz) {
+          quizResult = await storage.getQuizResultByQuizId(req.params.id);
+        }
+      }
+
+      if (!quizResult || !quiz) {
+        return res.status(404).json({ message: "Quiz result or quiz not found" });
+      }
+
+      // Get questions for this quiz
+      const reviewQuestions = [];
+      for (const questionId of quiz.questionIds) {
+        const question = await storage.getQuestion(questionId);
+        if (question) {
+          reviewQuestions.push({
+            ...question,
+            userAnswer: quizResult.answers[questionId] || null,
+            isCorrect: quizResult.answers[questionId] === question.correctAnswer
+          });
+        }
+      }
+
+      // Calculate elapsed time if both start and end times are available
+      let elapsedTime = null;
+      if (quiz.startTime && quiz.endTime) {
+        const startTime = new Date(quiz.startTime).getTime();
+        const endTime = new Date(quiz.endTime).getTime();
+        elapsedTime = Math.round((endTime - startTime) / 1000); // in seconds
+      }
+
+      res.json({
+        quiz,
+        quizResult,
+        questions: reviewQuestions,
+        elapsedTime
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch quiz review data" });
+    }
+  });
+
+  // Get quiz result with elapsed time
+  app.get("/api/quiz/:id/result", async (req, res) => {
+    try {
+      const quizResult = await storage.getQuizResult(req.params.id);
+      if (!quizResult) {
+        return res.status(404).json({ message: "Quiz result not found" });
+      }
+
+      // Get the associated quiz to calculate elapsed time
+      const quiz = await storage.getQuiz(quizResult.quizId);
+      let elapsedTime = null;
+      
+      if (quiz && quiz.startTime && quiz.endTime) {
+        const startTime = new Date(quiz.startTime).getTime();
+        const endTime = new Date(quiz.endTime).getTime();
+        elapsedTime = Math.round((endTime - startTime) / 1000); // in seconds
+      }
+
+      res.json({
+        ...quizResult,
+        elapsedTime
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch quiz result" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

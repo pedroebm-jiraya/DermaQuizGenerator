@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Quiz from "@/pages/quiz";
 import Results from "@/pages/results";
+import Review from "@/pages/review";
 import Analytics from "@/pages/analytics";
 
 function Router() {
@@ -14,6 +15,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/quiz/:id" component={Quiz} />
+      <Route path="/quiz/:id/review" component={Review} />
       <Route path="/results/:id" component={Results} />
       <Route path="/analytics" component={Analytics} />
       <Route component={NotFound} />
