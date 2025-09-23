@@ -49,6 +49,42 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
     );
   };
 
+  const handleSelectAllChapters = () => {
+    if (!stats?.bookParts) return;
+    
+    const allChapters = stats.bookParts.flatMap(part => part.chapters);
+    const allSelected = allChapters.every(chapter => selectedChapters.includes(chapter));
+    
+    if (allSelected) {
+      setSelectedChapters([]);
+    } else {
+      setSelectedChapters(allChapters);
+    }
+  };
+
+  const handleSelectAllYears = () => {
+    if (!stats?.years) return;
+    
+    const allSelected = stats.years.every(year => selectedYears.includes(year));
+    
+    if (allSelected) {
+      setSelectedYears([]);
+    } else {
+      setSelectedYears([...stats.years]);
+    }
+  };
+
+  const areAllChaptersSelected = () => {
+    if (!stats?.bookParts) return false;
+    const allChapters = stats.bookParts.flatMap(part => part.chapters);
+    return allChapters.length > 0 && allChapters.every(chapter => selectedChapters.includes(chapter));
+  };
+
+  const areAllYearsSelected = () => {
+    if (!stats?.years) return false;
+    return stats.years.length > 0 && stats.years.every(year => selectedYears.includes(year));
+  };
+
   const handleStartQuiz = async () => {
     if (selectedChapters.length === 0) {
       toast({
@@ -250,9 +286,21 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
               
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-3">
-                    Ano das Provas
-                  </label>
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="block text-sm font-medium text-foreground">
+                      Ano das Provas
+                    </label>
+                    {stats?.years?.length && (
+                      <label className="flex items-center space-x-2 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors">
+                        <Checkbox
+                          checked={areAllYearsSelected()}
+                          onCheckedChange={handleSelectAllYears}
+                          data-testid="checkbox-select-all-years"
+                        />
+                        <span>Selecionar todos</span>
+                      </label>
+                    )}
+                  </div>
                   {stats?.years?.length ? (
                     <div className="flex flex-wrap gap-2">
                       {stats.years.map((year: number) => (
@@ -278,9 +326,21 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-3">
-                    Assuntos
-                  </label>
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="block text-sm font-medium text-foreground">
+                      Assuntos
+                    </label>
+                    {stats?.bookParts?.length && (
+                      <label className="flex items-center space-x-2 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors">
+                        <Checkbox
+                          checked={areAllChaptersSelected()}
+                          onCheckedChange={handleSelectAllChapters}
+                          data-testid="checkbox-select-all-chapters"
+                        />
+                        <span>Selecionar todos</span>
+                      </label>
+                    )}
+                  </div>
                   {stats?.bookParts?.length ? (
                     <div className="max-h-64 overflow-y-auto space-y-4 border border-border rounded-lg p-4" data-testid="container-chapters">
                       {stats.bookParts.map((part: BookPartWithChapters) => (
