@@ -494,6 +494,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
+  // Admin endpoint to load complete question bank
+  app.post("/api/admin/load-complete-bank", async (req, res) => {
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+      const XLSX = await import('xlsx');
+      
+      const excelPath = path.join(process.cwd(), 'attached_assets', 'banco_TED_1758576231587.xlsx');
+      
+      if (!fs.existsSync(excelPath)) {
+        return res.status(404).json({ message: "Arquivo Excel não encontrado" });
+      }
+
+      const currentCount = await storage.getQuestionsCount();
+      
+      const fileBuffer = fs.readFileSync(excelPath);
+      const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(worksheet);
+
+      const debugInfo = {
+        totalRows: data.length,
+        firstRowKeys: data.length > 0 ? Object.keys(data[0] as any) : [],
+        firstRowSample: data.length > 0 ? data[0] : null
+      };
+
+      const questions: InsertQuestion[] = [];
+      let validationErrors: any[] = [];
+
+      for (const row of data as any[]) {
+        const options: string[] = [];
+        
+        if (row.alternativa_a) options.push(row.alternativa_a);
+        if (row.alternativa_b) options.push(row.alternativa_b);
+        if (row.alternativa_c) options.push(row.alternativa_c);
+        if (row.alternativa_d) options.push(row.alternativa_d);
+        if (row.alternativa_e) options.push(row.alternativa_e);
+
+        if (row.enunciado && row.gabarito && row.capitulo && options.length >= 4) {
+          const question: InsertQuestion = {
+            year: parseInt(row.ano) || 2024,
+            statement: row.enunciado,
+            options,
+            correctAnswer: row.gabarito.toUpperCase(),
+            chapter: row.capitulo,
+            bookSection: row.parte || 'Não especificado'
+          };
+
+          const validationResult = insertQuestionSchema.safeParse(question);
+          if (validationResult.success) {
+            questions.push(validationResult.data);
+          } else {
+            validationErrors.push({
+              row: row,
+              errors: validationResult.error.errors
+            });
+          }
+        }
+      }
+
+      if (questions.length === 0) {
+        return res.status(400).json({ 
+          message: "Nenhuma questão válida encontrada no arquivo", 
+          debug: debugInfo,
+          sampleValidationErrors: validationErrors.slice(0, 3)
+        });
+      }
+
+      // Clear existing and import new
+      if (currentCount > 0) {
+        await storage.clearAllQuestions();
+      }
+      
+      await storage.importQuestions(questions);
+      
+      res.json({ 
+        message: "Banco completo carregado com sucesso", 
+        questionsLoaded: questions.length,
+        previousCount: currentCount
+      });
+
+    } catch (error) {
+      console.error('Admin load error:', error);
+      res.status(500).json({ message: "Erro ao carregar banco completo" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

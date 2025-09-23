@@ -19,6 +19,7 @@ export interface IStorage {
   getChapters(): Promise<string[]>;
   getYears(): Promise<number[]>;
   importQuestions(questions: InsertQuestion[]): Promise<void>;
+  clearAllQuestions(): Promise<void>;
   
   // Quiz methods
   createQuiz(quiz: InsertQuiz): Promise<Quiz>;
@@ -118,6 +119,10 @@ export class DatabaseStorage implements IStorage {
       }));
       await db.insert(questions).values(formattedQuestions);
     }
+  }
+
+  async clearAllQuestions(): Promise<void> {
+    await db.delete(questions);
   }
 
   async createQuiz(insertQuiz: InsertQuiz): Promise<Quiz> {
