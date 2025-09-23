@@ -1,4 +1,4 @@
-import { type Question, type InsertQuestion, type Quiz, type InsertQuiz, type QuizResult, type InsertQuizResult, type User, type InsertUser, questions, quizzes, quizResults, users } from "@shared/schema";
+import { type Question, type InsertQuestion, type Quiz, type InsertQuiz, type QuizResult, type InsertQuizResult, type User, type InsertUser, type BookPartWithChapters, questions, quizzes, quizResults, users, BOOK_PARTS } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, inArray, desc, and, count } from "drizzle-orm";
@@ -18,6 +18,7 @@ export interface IStorage {
   getQuestionsCount(): Promise<number>;
   getChapters(): Promise<string[]>;
   getYears(): Promise<number[]>;
+  getBookParts(): Promise<BookPartWithChapters[]>;
   importQuestions(questions: InsertQuestion[]): Promise<void>;
   clearAllQuestions(): Promise<void>;
   
@@ -109,6 +110,43 @@ export class DatabaseStorage implements IStorage {
   async getYears(): Promise<number[]> {
     const result = await db.selectDistinct({ year: questions.year }).from(questions).orderBy(desc(questions.year));
     return result.map(r => r.year);
+  }
+
+  async getBookParts(): Promise<BookPartWithChapters[]> {
+    const result = await db.selectDistinct({
+      bookSection: questions.bookSection,
+      chapter: questions.chapter
+    }).from(questions);
+    
+    // Group chapters by book section
+    const partMap = new Map<string, string[]>();
+    
+    result.forEach(({ bookSection, chapter }) => {
+      const sectionId = bookSection.toString();
+      if (!partMap.has(sectionId)) {
+        partMap.set(sectionId, []);
+      }
+      partMap.get(sectionId)!.push(chapter);
+    });
+    
+    // Convert to BookPartWithChapters array
+    const bookParts: BookPartWithChapters[] = [];
+    
+    partMap.forEach((chapters, sectionId) => {
+      const partName = BOOK_PARTS[sectionId] || `PARTE ${sectionId}: Não especificado`;
+      bookParts.push({
+        id: sectionId,
+        name: partName,
+        chapters: chapters.sort()
+      });
+    });
+    
+    // Sort by part number
+    return bookParts.sort((a, b) => {
+      const numA = parseInt(a.id) || 999;
+      const numB = parseInt(b.id) || 999;
+      return numA - numB;
+    });
   }
 
   async importQuestions(insertQuestions: InsertQuestion[]): Promise<void> {

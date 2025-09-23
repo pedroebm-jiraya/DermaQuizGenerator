@@ -8,7 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { QuizSetup, QuestionStats } from "@shared/schema";
+import type { QuizSetup, QuestionStats, BookPartWithChapters } from "@shared/schema";
 
 interface QuizSetupProps {
   onQuizStart: (quizId: string) => void;
@@ -53,7 +53,7 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
     if (selectedChapters.length === 0) {
       toast({
         title: "Seleção obrigatória",
-        description: "Selecione pelo menos um capítulo",
+        description: "Selecione pelo menos um assunto",
         variant: "destructive",
       });
       return;
@@ -271,7 +271,7 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
                   ) : (
                     <div className="p-4 border border-border rounded-lg bg-muted/20" data-testid="message-no-years">
                       <p className="text-sm text-muted-foreground text-center">
-                        Nenhum ano disponível. Por favor, importe questões usando o botão "Importar Planilha" acima.
+                        Nenhum ano disponível.
                       </p>
                     </div>
                   )}
@@ -279,29 +279,38 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
 
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-3">
-                    Capítulos do Livro
+                    Assuntos
                   </label>
-                  {stats?.chapters?.length ? (
-                    <div className="max-h-48 overflow-y-auto space-y-2 border border-border rounded-lg p-3" data-testid="container-chapters">
-                      {stats.chapters.map((chapter: string) => (
-                        <label
-                          key={chapter}
-                          className="flex items-center space-x-3 cursor-pointer hover:bg-muted/50 p-2 rounded"
-                          data-testid={`label-chapter-${chapter.toLowerCase().replace(/\s+/g, '-')}`}
-                        >
-                          <Checkbox
-                            checked={selectedChapters.includes(chapter)}
-                            onCheckedChange={() => handleChapterToggle(chapter)}
-                            data-testid={`checkbox-chapter-${chapter.toLowerCase().replace(/\s+/g, '-')}`}
-                          />
-                          <span className="text-sm text-foreground">{chapter}</span>
-                        </label>
+                  {stats?.bookParts?.length ? (
+                    <div className="max-h-64 overflow-y-auto space-y-4 border border-border rounded-lg p-4" data-testid="container-chapters">
+                      {stats.bookParts.map((part: BookPartWithChapters) => (
+                        <div key={part.id} className="space-y-2">
+                          <h4 className="text-sm font-semibold text-primary border-b border-border pb-1">
+                            {part.name}
+                          </h4>
+                          <div className="space-y-1 pl-2">
+                            {part.chapters.map((chapter: string) => (
+                              <label
+                                key={chapter}
+                                className="flex items-center space-x-3 cursor-pointer hover:bg-muted/30 p-2 rounded"
+                                data-testid={`label-chapter-${chapter.toLowerCase().replace(/\s+/g, '-')}`}
+                              >
+                                <Checkbox
+                                  checked={selectedChapters.includes(chapter)}
+                                  onCheckedChange={() => handleChapterToggle(chapter)}
+                                  data-testid={`checkbox-chapter-${chapter.toLowerCase().replace(/\s+/g, '-')}`}
+                                />
+                                <span className="text-sm text-foreground">{chapter}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   ) : (
                     <div className="p-4 border border-border rounded-lg bg-muted/20" data-testid="message-no-chapters">
                       <p className="text-sm text-muted-foreground text-center">
-                        Nenhum capítulo disponível. Por favor, importe questões usando o botão "Importar Planilha" acima.
+                        Nenhum assunto disponível.
                       </p>
                     </div>
                   )}
@@ -313,24 +322,17 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
           <div className="flex justify-center mt-8">
             <Button
               onClick={handleStartQuiz}
-              disabled={creating || !stats?.years?.length || !stats?.chapters?.length}
+              disabled={creating || !stats?.years?.length || !stats?.bookParts?.length}
               size="lg"
               className="font-semibold text-lg shadow-lg"
               data-testid="button-start-quiz"
             >
               <Play className="mr-2" />
               {creating ? "Criando Simulado..." : 
-               (!stats?.years?.length || !stats?.chapters?.length) ? "Importe questões primeiro" : 
+               (!stats?.years?.length || !stats?.bookParts?.length) ? "Nenhum dado disponível" : 
                "Iniciar Simulado"}
             </Button>
           </div>
-          {(!stats?.years?.length || !stats?.chapters?.length) && (
-            <div className="text-center mt-4">
-              <p className="text-sm text-muted-foreground" data-testid="message-import-needed">
-                Para criar simulados, primeiro importe questões usando o botão "Importar Planilha" no topo da página.
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
 

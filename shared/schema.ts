@@ -106,11 +106,35 @@ export type QuizResult = typeof quizResults.$inferSelect;
 export type QuizSetup = z.infer<typeof quizSetupSchema>;
 export type QuizAnswer = z.infer<typeof quizAnswerSchema>;
 
+// Book parts mapping
+export const BOOK_PARTS: Record<string, string> = {
+  "1": "PARTE 1: FUNDAMENTOS DA DERMATOLOGIA",
+  "2": "PARTE 2: AFECÇÕES INFLAMATÓRIAS", 
+  "3": "PARTE 3: AFECÇÕES RELACIONADAS AO CICLO VITAL",
+  "4": "PARTE 4: AFECÇÕES DOS ANEXOS CUTÂNEOS E DAS MUCOSAS",
+  "5": "PARTE 5: AFECÇÕES INFECCIOSAS E INFESTAÇÕES",
+  "6": "PARTE 6: AFECÇÕES DETERMINADAS OU AGRAVADAS PELA INTERAÇÃO COM O AMBIENTE",
+  "7": "PARTE 7: AFECÇÕES METABÓLICAS E NUTRICIONAIS",
+  "8": "PARTE 8: AFECÇÕES HEREDITÁRIAS – GENODERMATOSES",
+  "9": "PARTE 9: AFECÇÕES TEGUMENTARES E INTERDISCIPLINARES",
+  "10": "PARTE 10: AFECÇÕES HAMARTOMATOSAS E NEOPLÁSICAS",
+  "11": "PARTE 11: CIRURGIA DERMATOLÓGICA E PROCEDIMENTOS TERAPÊUTICOS OU CORRETIVOS DA PELE",
+  "12": "PARTE 12: TERAPÊUTICA MEDICAMENTOSA NA DERMATOLOGIA",
+  "13": "PARTE 13: PESQUISA EM DERMATOLOGIA"
+};
+
+export interface BookPartWithChapters {
+  id: string;
+  name: string;
+  chapters: string[];
+}
+
 // API response types
 export interface QuestionStats {
   totalQuestions: number;
   chapters: string[];
   years: number[];
+  bookParts: BookPartWithChapters[];
 }
 
 export interface QuizWithQuestions {

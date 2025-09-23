@@ -86,11 +86,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalQuestions = await storage.getQuestionsCount();
       const chapters = await storage.getChapters();
       const years = await storage.getYears();
+      const bookParts = await storage.getBookParts();
       
       res.json({
         totalQuestions,
         chapters,
-        years
+        years,
+        bookParts
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch question statistics" });
