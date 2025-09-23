@@ -416,8 +416,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (createError: any) {
           // Handle race condition
           if (createError?.code === '23505') {
-            user = await storage.getUserBySessionId(sessionId);
-            console.log('User already exists for session endpoint, fetched:', user?.id, 'for session:', sessionId);
+            const existingUser = await storage.getUserBySessionId(sessionId);
+            if (existingUser) {
+              user = existingUser;
+              console.log('User already exists for session endpoint, fetched:', user.id, 'for session:', sessionId);
+            } else {
+              throw new Error('Failed to create or fetch user');
+            }
           } else {
             throw createError;
           }

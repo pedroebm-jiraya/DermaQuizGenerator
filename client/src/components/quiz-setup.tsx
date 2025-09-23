@@ -205,42 +205,58 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
                   <label className="block text-sm font-medium text-foreground mb-3">
                     Ano das Provas
                   </label>
-                  <div className="flex flex-wrap gap-2">
-                    {stats?.years?.map((year: number) => (
-                      <Button
-                        key={year}
-                        variant={selectedYears.includes(year) ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleYearToggle(year)}
-                        className="text-sm font-medium"
-                        data-testid={`button-year-${year}`}
-                      >
-                        {year}
-                      </Button>
-                    ))}
-                  </div>
+                  {stats?.years?.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {stats.years.map((year: number) => (
+                        <Button
+                          key={year}
+                          variant={selectedYears.includes(year) ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleYearToggle(year)}
+                          className="text-sm font-medium"
+                          data-testid={`button-year-${year}`}
+                        >
+                          {year}
+                        </Button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 border border-border rounded-lg bg-muted/20" data-testid="message-no-years">
+                      <p className="text-sm text-muted-foreground text-center">
+                        Nenhum ano disponível. Por favor, importe questões usando o botão "Importar Planilha" acima.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-3">
                     Capítulos do Livro
                   </label>
-                  <div className="max-h-48 overflow-y-auto space-y-2 border border-border rounded-lg p-3" data-testid="container-chapters">
-                    {stats?.chapters?.map((chapter: string) => (
-                      <label
-                        key={chapter}
-                        className="flex items-center space-x-3 cursor-pointer hover:bg-muted/50 p-2 rounded"
-                        data-testid={`label-chapter-${chapter.toLowerCase().replace(/\s+/g, '-')}`}
-                      >
-                        <Checkbox
-                          checked={selectedChapters.includes(chapter)}
-                          onCheckedChange={() => handleChapterToggle(chapter)}
-                          data-testid={`checkbox-chapter-${chapter.toLowerCase().replace(/\s+/g, '-')}`}
-                        />
-                        <span className="text-sm text-foreground">{chapter}</span>
-                      </label>
-                    ))}
-                  </div>
+                  {stats?.chapters?.length ? (
+                    <div className="max-h-48 overflow-y-auto space-y-2 border border-border rounded-lg p-3" data-testid="container-chapters">
+                      {stats.chapters.map((chapter: string) => (
+                        <label
+                          key={chapter}
+                          className="flex items-center space-x-3 cursor-pointer hover:bg-muted/50 p-2 rounded"
+                          data-testid={`label-chapter-${chapter.toLowerCase().replace(/\s+/g, '-')}`}
+                        >
+                          <Checkbox
+                            checked={selectedChapters.includes(chapter)}
+                            onCheckedChange={() => handleChapterToggle(chapter)}
+                            data-testid={`checkbox-chapter-${chapter.toLowerCase().replace(/\s+/g, '-')}`}
+                          />
+                          <span className="text-sm text-foreground">{chapter}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 border border-border rounded-lg bg-muted/20" data-testid="message-no-chapters">
+                      <p className="text-sm text-muted-foreground text-center">
+                        Nenhum capítulo disponível. Por favor, importe questões usando o botão "Importar Planilha" acima.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -249,15 +265,24 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
           <div className="flex justify-center mt-8">
             <Button
               onClick={handleStartQuiz}
-              disabled={creating}
+              disabled={creating || !stats?.years?.length || !stats?.chapters?.length}
               size="lg"
               className="font-semibold text-lg shadow-lg"
               data-testid="button-start-quiz"
             >
               <Play className="mr-2" />
-              {creating ? "Criando Simulado..." : "Iniciar Simulado"}
+              {creating ? "Criando Simulado..." : 
+               (!stats?.years?.length || !stats?.chapters?.length) ? "Importe questões primeiro" : 
+               "Iniciar Simulado"}
             </Button>
           </div>
+          {(!stats?.years?.length || !stats?.chapters?.length) && (
+            <div className="text-center mt-4">
+              <p className="text-sm text-muted-foreground" data-testid="message-import-needed">
+                Para criar simulados, primeiro importe questões usando o botão "Importar Planilha" no topo da página.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </>
