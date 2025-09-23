@@ -67,6 +67,16 @@ export default function Home() {
         ) : (
           <>
             <QuizSetup onQuizStart={handleQuizStart} />
+
+            {/* Upload section always available */}
+            <section className="mt-12" data-testid="section-upload">
+              <h3 className="text-xl font-semibold text-foreground mb-6" data-testid="text-upload-section-title">
+                Importar Mais Questões
+              </h3>
+              <div className="max-w-md mx-auto">
+                <FileUpload onUploadComplete={handleUploadComplete} />
+              </div>
+            </section>
             
             {recentResults && recentResults.length > 0 && (
               <section className="mt-12" data-testid="section-recent-activity">
