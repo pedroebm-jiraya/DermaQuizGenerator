@@ -1,12 +1,9 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import multer from "multer";
-import * as XLSX from "xlsx";
 import { storage } from "./storage";
 import { insertQuestionSchema, quizSetupSchema, insertQuizResultSchema, type InsertQuestion, type QuestionStats, type QuizWithQuestions, type User } from "@shared/schema";
 import { randomUUID } from "crypto";
 
-const upload = multer({ storage: multer.memoryStorage() });
 
 // User session middleware - only for API routes
 const sessionMiddleware = async (req: Request, res: Response, next: NextFunction) => {
@@ -100,83 +97,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upload Excel file and import questions
-  app.post("/api/questions/import", upload.single('file'), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
-      }
-
-      const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const data = XLSX.utils.sheet_to_json(worksheet);
-
-      console.log(`Processing ${data.length} rows from Excel file`);
-      if (data.length > 0) {
-        console.log('Column names in first row:', Object.keys(data[0] as any));
-        console.log('First row data sample:', JSON.stringify(data[0], null, 2));
-        console.log('Second row data sample:', data.length > 1 ? JSON.stringify(data[1], null, 2) : 'No second row');
-      }
-
-      const questions: InsertQuestion[] = [];
-
-      for (const row of data as any[]) {
-        // Handle both old and new column formats
-        const options: string[] = [];
-        
-        // Try new format first (with spaces)
-        const altA = row[' Alternativa a '] || row['alternativa_a'];
-        const altB = row[' Alternativa b '] || row['alternativa_b'];
-        const altC = row[' Alternativa c '] || row['alternativa_c'];
-        const altD = row[' Alternativa d '] || row['alternativa_d'];
-        const altE = row[' Alternativa e '] || row['alternativa_e'];
-        
-        if (altA) options.push(altA.toString().trim());
-        if (altB) options.push(altB.toString().trim());
-        if (altC) options.push(altC.toString().trim());
-        if (altD) options.push(altD.toString().trim());
-        if (altE) options.push(altE.toString().trim());
-
-        // Get other fields with fallbacks
-        const statement = row[' Enunciado da Questão '] || row['enunciado'];
-        const answer = row[' Gabarito '] || row['gabarito'];
-        const chapter = row['Tema'] || row['capitulo'];
-        const year = row[' Ano da Prova '] || row['ano'];
-        const bookSection = row['Parte'] || row['parte'];
-
-        if (statement && answer && chapter && options.length >= 4) {
-          const question: InsertQuestion = {
-            year: parseInt(year) || 2024,
-            statement: statement.toString().trim(),
-            options,
-            correctAnswer: answer.toString().toUpperCase().trim(),
-            chapter: chapter.toString().trim(),
-            bookSection: bookSection ? bookSection.toString().trim() : 'Não especificado'
-          };
-
-          const validationResult = insertQuestionSchema.safeParse(question);
-          if (validationResult.success) {
-            questions.push(validationResult.data);
-          }
-        }
-      }
-
-      if (questions.length === 0) {
-        return res.status(400).json({ message: "No valid questions found in the uploaded file" });
-      }
-
-      await storage.importQuestions(questions);
-      res.json({ 
-        message: "Questions imported successfully", 
-        imported: questions.length 
-      });
-
-    } catch (error) {
-      console.error('Import error:', error);
-      res.status(500).json({ message: "Failed to import questions" });
-    }
-  });
 
   // Create a new quiz
   app.post("/api/quiz", async (req, res) => {
@@ -568,117 +488,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
-  // Admin endpoint to load complete question bank
-  app.post("/api/admin/load-complete-bank", async (req, res) => {
-    try {
-      const fs = await import('fs');
-      const path = await import('path');
-      const XLSX = await import('xlsx');
-      
-      const excelPath = path.join(process.cwd(), 'attached_assets', 'banco_TED_1758576231587.xlsx');
-      
-      if (!fs.existsSync(excelPath)) {
-        return res.status(404).json({ message: "Arquivo Excel não encontrado" });
-      }
-
-      const currentCount = await storage.getQuestionsCount();
-      
-      const fileBuffer = fs.readFileSync(excelPath);
-      const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const data = XLSX.utils.sheet_to_json(worksheet);
-
-      const debugInfo = {
-        totalRows: data.length,
-        firstRowKeys: data.length > 0 ? Object.keys(data[0] as any) : [],
-        firstRowSample: data.length > 0 ? data[0] : null
-      };
-
-      const questions: InsertQuestion[] = [];
-      let validationErrors: any[] = [];
-
-      for (const row of data as any[]) {
-        // Handle both old and new column formats
-        const options: string[] = [];
-        
-        // Try new format first (with spaces)
-        const altA = row[' Alternativa a '] || row['alternativa_a'];
-        const altB = row[' Alternativa b '] || row['alternativa_b'];
-        const altC = row[' Alternativa c '] || row['alternativa_c'];
-        const altD = row[' Alternativa d '] || row['alternativa_d'];
-        const altE = row[' Alternativa e '] || row['alternativa_e'];
-        
-        if (altA) options.push(altA.toString().trim());
-        if (altB) options.push(altB.toString().trim());
-        if (altC) options.push(altC.toString().trim());
-        if (altD) options.push(altD.toString().trim());
-        if (altE) options.push(altE.toString().trim());
-
-        // Get other fields with fallbacks
-        const statement = row[' Enunciado da Questão '] || row['enunciado'];
-        const answer = row[' Gabarito '] || row['gabarito'];
-        const chapter = row['Tema'] || row['capitulo'];
-        const year = row[' Ano da Prova '] || row['ano'];
-        const bookSection = row['Parte'] || row['parte'];
-
-        if (statement && answer && chapter && options.length >= 4) {
-          const question: InsertQuestion = {
-            year: parseInt(year) || 2024,
-            statement: statement.toString().trim(),
-            options,
-            correctAnswer: answer.toString().toUpperCase().trim(),
-            chapter: chapter.toString().trim(),
-            bookSection: bookSection ? bookSection.toString().trim() : 'Não especificado'
-          };
-
-          const validationResult = insertQuestionSchema.safeParse(question);
-          if (validationResult.success) {
-            questions.push(validationResult.data);
-          } else {
-            validationErrors.push({
-              question: question,
-              errors: validationResult.error.errors
-            });
-            if (validationErrors.length <= 5) { // Log first 5 validation errors
-              console.log('Validation error for question:', JSON.stringify(question, null, 2));
-              console.log('Validation errors:', JSON.stringify(validationResult.error.errors, null, 2));
-            }
-          }
-        } else {
-          if (validationErrors.length <= 3) { // Log first 3 missing field errors
-            console.log('Missing required fields - statement:', !!statement, 'answer:', !!answer, 'chapter:', !!chapter, 'options count:', options.length);
-            console.log('Row data:', JSON.stringify(row, null, 2));
-          }
-        }
-      }
-
-      if (questions.length === 0) {
-        return res.status(400).json({ 
-          message: "Nenhuma questão válida encontrada no arquivo", 
-          debug: debugInfo,
-          sampleValidationErrors: validationErrors.slice(0, 3)
-        });
-      }
-
-      // Clear existing and import new
-      if (currentCount > 0) {
-        await storage.clearAllQuestions();
-      }
-      
-      await storage.importQuestions(questions);
-      
-      res.json({ 
-        message: "Banco completo carregado com sucesso", 
-        questionsLoaded: questions.length,
-        previousCount: currentCount
-      });
-
-    } catch (error) {
-      console.error('Admin load error:', error);
-      res.status(500).json({ message: "Erro ao carregar banco completo" });
-    }
-  });
 
   const httpServer = createServer(app);
   return httpServer;
