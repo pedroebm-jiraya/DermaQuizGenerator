@@ -1,4 +1,4 @@
-import { type Question, type InsertQuestion, type Quiz, type InsertQuiz, type QuizResult, type InsertQuizResult, type User, type InsertUser, type BookPartWithChapters, questions, quizzes, quizResults, users, BOOK_PARTS } from "@shared/schema";
+import { type Question, type InsertQuestion, type Quiz, type InsertQuiz, type QuizResult, type InsertQuizResult, type User, type InsertUser, type Disagreement, type InsertDisagreement, type BookPartWithChapters, questions, quizzes, quizResults, users, disagreements, BOOK_PARTS } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, inArray, desc, and, count } from "drizzle-orm";
@@ -33,6 +33,14 @@ export interface IStorage {
   getQuizResultByQuizId(quizId: string): Promise<QuizResult | undefined>;
   getRecentQuizResults(limit?: number): Promise<QuizResult[]>;
   getUserQuizResults(userId: string, limit?: number): Promise<QuizResult[]>;
+  
+  // Disagreement methods
+  createDisagreement(disagreement: InsertDisagreement): Promise<Disagreement>;
+  getDisagreement(id: string): Promise<Disagreement | undefined>;
+  getDisagreementsByQuestion(questionId: string): Promise<Disagreement[]>;
+  getDisagreementsByStatus(status: string): Promise<Disagreement[]>;
+  updateDisagreementStatus(id: string, status: string, adminNotes?: string): Promise<void>;
+  getAllDisagreements(): Promise<Disagreement[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -211,6 +219,52 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(quizResults)
       .orderBy(desc(quizResults.completedAt))
       .limit(limit);
+  }
+
+  // Disagreement methods
+  async createDisagreement(insertDisagreement: InsertDisagreement): Promise<Disagreement> {
+    const [disagreement] = await db
+      .insert(disagreements)
+      .values(insertDisagreement)
+      .returning();
+    return disagreement;
+  }
+
+  async getDisagreement(id: string): Promise<Disagreement | undefined> {
+    const [disagreement] = await db.select().from(disagreements).where(eq(disagreements.id, id));
+    return disagreement || undefined;
+  }
+
+  async getDisagreementsByQuestion(questionId: string): Promise<Disagreement[]> {
+    return await db.select().from(disagreements)
+      .where(eq(disagreements.questionId, questionId))
+      .orderBy(desc(disagreements.createdAt));
+  }
+
+  async getDisagreementsByStatus(status: string): Promise<Disagreement[]> {
+    return await db.select().from(disagreements)
+      .where(eq(disagreements.status, status))
+      .orderBy(desc(disagreements.createdAt));
+  }
+
+  async updateDisagreementStatus(id: string, status: string, adminNotes?: string): Promise<void> {
+    const updateData: any = { 
+      status,
+      reviewedAt: new Date().toISOString()
+    };
+    
+    if (adminNotes) {
+      updateData.adminNotes = adminNotes;
+    }
+
+    await db.update(disagreements)
+      .set(updateData)
+      .where(eq(disagreements.id, id));
+  }
+
+  async getAllDisagreements(): Promise<Disagreement[]> {
+    return await db.select().from(disagreements)
+      .orderBy(desc(disagreements.createdAt));
   }
 }
 

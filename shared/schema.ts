@@ -48,10 +48,24 @@ export const quizResults = pgTable("quiz_results", {
   completedAt: text("completed_at").notNull().default(sql`now()`),
 });
 
+export const disagreements = pgTable("disagreements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  questionId: varchar("question_id").notNull().references(() => questions.id),
+  quizResultId: varchar("quiz_result_id").notNull().references(() => quizResults.id),
+  userId: varchar("user_id").references(() => users.id),
+  type: varchar("type", { length: 50 }).notNull(), // 'statement', 'option', 'answer'
+  description: text("description").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // 'pending', 'reviewed', 'resolved'
+  adminNotes: text("admin_notes"),
+  createdAt: text("created_at").notNull().default(sql`now()`),
+  reviewedAt: text("reviewed_at"),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   quizzes: many(quizzes),
   quizResults: many(quizResults),
+  disagreements: many(disagreements),
 }));
 
 export const quizzesRelations = relations(quizzes, ({ one, many }) => ({
@@ -59,9 +73,20 @@ export const quizzesRelations = relations(quizzes, ({ one, many }) => ({
   results: many(quizResults),
 }));
 
-export const quizResultsRelations = relations(quizResults, ({ one }) => ({
+export const quizResultsRelations = relations(quizResults, ({ one, many }) => ({
   quiz: one(quizzes, { fields: [quizResults.quizId], references: [quizzes.id] }),
   user: one(users, { fields: [quizResults.userId], references: [users.id] }),
+  disagreements: many(disagreements),
+}));
+
+export const questionsRelations = relations(questions, ({ many }) => ({
+  disagreements: many(disagreements),
+}));
+
+export const disagreementsRelations = relations(disagreements, ({ one }) => ({
+  question: one(questions, { fields: [disagreements.questionId], references: [questions.id] }),
+  quizResult: one(quizResults, { fields: [disagreements.quizResultId], references: [quizResults.id] }),
+  user: one(users, { fields: [disagreements.userId], references: [users.id] }),
 }));
 
 // Insert schemas
@@ -85,6 +110,12 @@ export const insertQuizResultSchema = createInsertSchema(quizResults).omit({
   completedAt: true,
 });
 
+export const insertDisagreementSchema = createInsertSchema(disagreements).omit({
+  id: true,
+  createdAt: true,
+  reviewedAt: true,
+});
+
 export const quizSetupSchema = z.object({
   questionCount: z.number().min(1).max(80),
   selectedChapters: z.array(z.string()).min(1),
@@ -105,6 +136,8 @@ export type InsertQuiz = z.infer<typeof insertQuizSchema>;
 export type Quiz = typeof quizzes.$inferSelect;
 export type InsertQuizResult = z.infer<typeof insertQuizResultSchema>;
 export type QuizResult = typeof quizResults.$inferSelect;
+export type InsertDisagreement = z.infer<typeof insertDisagreementSchema>;
+export type Disagreement = typeof disagreements.$inferSelect;
 export type QuizSetup = z.infer<typeof quizSetupSchema>;
 export type QuizAnswer = z.infer<typeof quizAnswerSchema>;
 
