@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import logoPath from "@assets/Dermaquizlogo_1759149920053.png";
+import logoPath from "@assets/Dermaquizlogo_1759150672957.png";
 
 export default function AppHeader() {
   const [location] = useLocation();
