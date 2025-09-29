@@ -9,7 +9,19 @@ import { randomUUID } from "crypto";
 // Configure multer for file uploads
 const upload = multer({ 
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    // Only allow Excel files
+    const allowedMimes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel' // .xls
+    ];
+    if (allowedMimes.includes(file.mimetype) || file.originalname.endsWith('.xlsx') || file.originalname.endsWith('.xls')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Excel files (.xlsx, .xls) are allowed'));
+    }
+  }
 });
 
 // Admin authentication middleware
@@ -23,8 +35,13 @@ const adminAuth = (req: Request, res: Response, next: NextFunction) => {
   const credentials = Buffer.from(authHeader.slice(6), 'base64').toString('utf-8');
   const [username, password] = credentials.split(':');
 
-  const adminUsername = process.env.ADMIN_USERNAME || "dermatoufs";
-  const adminPassword = process.env.ADMIN_PASSWORD || "Fedr0p0rtugal";
+  const adminUsername = process.env.ADMIN_USERNAME;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminUsername || !adminPassword) {
+    console.error('ADMIN_USERNAME and ADMIN_PASSWORD environment variables must be set');
+    return res.status(500).json({ message: "Server configuration error" });
+  }
 
   if (username === adminUsername && password === adminPassword) {
     next();
@@ -717,7 +734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           // Create question object
-          const question: InsertQuestion = {
+          const questionData: InsertQuestion = {
             id: randomUUID(),
             year,
             statement,
@@ -728,7 +745,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             section: String(rowData.Secao || rowData.Section || rowData.section || '').trim()
           };
 
-          questions.push(question);
+          // Validate using Zod schema
+          const validatedQuestion = insertQuestionSchema.parse(questionData);
+          questions.push(validatedQuestion);
+
           processedCount++;
         } catch (error) {
           console.error('Error processing row:', error);
