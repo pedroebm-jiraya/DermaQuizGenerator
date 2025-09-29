@@ -1,11 +1,18 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, CheckCircle, XCircle, Clock } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, Clock, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import AppHeader from "@/components/app-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useState } from "react";
 
 interface ReviewQuestion {
   id: string;
@@ -34,6 +41,122 @@ interface ReviewData {
   };
   questions: ReviewQuestion[];
   elapsedTime: number | null;
+}
+
+function DisagreementModal({ questionId, quizResultId }: { questionId: string; quizResultId: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [type, setType] = useState<string>("");
+  const [description, setDescription] = useState("");
+  const { toast } = useToast();
+
+  const disagreementMutation = useMutation({
+    mutationFn: (data: { questionId: string; quizResultId: string; type: string; description: string }) =>
+      apiRequest(`/api/disagreements`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      toast({
+        title: "Discordância enviada",
+        description: "Sua discordância foi registrada e será analisada pela equipe.",
+      });
+      setIsOpen(false);
+      setType("");
+      setDescription("");
+    },
+    onError: () => {
+      toast({
+        title: "Erro ao enviar",
+        description: "Não foi possível registrar sua discordância. Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = () => {
+    if (!type || !description.trim()) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Por favor, selecione o tipo de problema e descreva a discordância.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    disagreementMutation.mutate({
+      questionId,
+      quizResultId,
+      type,
+      description: description.trim(),
+    });
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="text-orange-600 border-orange-600 hover:bg-orange-50"
+          data-testid={`button-disagreement-${questionId}`}
+        >
+          <AlertTriangle className="w-3 h-3 mr-1" />
+          Reportar Problema
+        </Button>
+      </DialogTrigger>
+      
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Reportar Problema com a Questão</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="type">Tipo de Problema</Label>
+            <Select value={type} onValueChange={setType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o tipo de problema" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="statement">Problema no enunciado</SelectItem>
+                <SelectItem value="option">Problema nas alternativas</SelectItem>
+                <SelectItem value="answer">Gabarito incorreto</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div>
+            <Label htmlFor="description">Descrição do Problema</Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Descreva detalhadamente o problema encontrado..."
+              rows={4}
+              data-testid="textarea-disagreement-description"
+            />
+          </div>
+          
+          <div className="flex justify-end space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsOpen(false)}
+              data-testid="button-cancel-disagreement"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleSubmit}
+              disabled={disagreementMutation.isPending}
+              data-testid="button-submit-disagreement"
+            >
+              {disagreementMutation.isPending ? "Enviando..." : "Enviar"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export default function Review() {
@@ -254,6 +377,16 @@ export default function Review() {
                       </span>
                     </div>
                   )}
+                  
+                  {/* Disagreement button */}
+                  <div className="pt-3 border-t border-border">
+                    <div className="flex justify-end">
+                      <DisagreementModal 
+                        questionId={question.id} 
+                        quizResultId={quizResult.id} 
+                      />
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

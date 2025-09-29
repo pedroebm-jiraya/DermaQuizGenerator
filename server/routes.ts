@@ -576,6 +576,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create disagreement for a specific question
+  app.post("/api/disagreements", async (req, res) => {
+    try {
+      const { questionId, quizResultId, type, description } = req.body;
+      const user = (req as any).user as User;
+      const sessionId = (req as any).sessionId as string;
+
+      if (!questionId || !quizResultId || !type || !description) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const disagreement = await storage.createDisagreement({
+        questionId,
+        quizResultId,
+        userId: user?.id || null,
+        type,
+        description,
+        status: "pending"
+      });
+
+      res.status(201).json(disagreement);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create disagreement" });
+    }
+  });
+
+  // Get disagreements for admin panel
+  app.get("/api/admin/disagreements", async (req, res) => {
+    try {
+      const { status } = req.query;
+      
+      let disagreements;
+      if (status && typeof status === 'string') {
+        disagreements = await storage.getDisagreementsByStatus(status);
+      } else {
+        disagreements = await storage.getAllDisagreements();
+      }
+      
+      res.json(disagreements);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch disagreements" });
+    }
+  });
+
+  // Update disagreement status (admin only)
+  app.patch("/api/admin/disagreements/:id", async (req, res) => {
+    try {
+      const { status, adminNotes } = req.body;
+      
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+
+      await storage.updateDisagreementStatus(req.params.id, status, adminNotes);
+      res.json({ message: "Disagreement updated successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update disagreement" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
