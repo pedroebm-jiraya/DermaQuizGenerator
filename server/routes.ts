@@ -1,8 +1,16 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import multer from "multer";
+import * as XLSX from "xlsx";
 import { storage } from "./storage";
 import { insertQuestionSchema, quizSetupSchema, insertQuizResultSchema, type InsertQuestion, type QuestionStats, type QuizWithQuestions, type User } from "@shared/schema";
 import { randomUUID } from "crypto";
+
+// Configure multer for file uploads
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
 
 // Admin authentication middleware
 const adminAuth = (req: Request, res: Response, next: NextFunction) => {
@@ -653,6 +661,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Disagreement updated successfully" });
     } catch (error) {
       res.status(500).json({ message: "Failed to update disagreement" });
+    }
+  });
+
+  // Upload questions from Excel file (admin only)
+  app.post("/api/upload", adminAuth, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      // Parse Excel file
+      const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(worksheet);
+
+      console.log(`Processing ${data.length} rows from Excel file`);
+
+      const questions: InsertQuestion[] = [];
+      let processedCount = 0;
+      let skippedCount = 0;
+
+      for (const row of data) {
+        try {
+          const rowData = row as any;
+          
+          // Extract and validate required fields
+          const year = parseInt(String(rowData.Ano || rowData.Year || rowData.ano || '').trim());
+          const statement = String(rowData.Pergunta || rowData.Statement || rowData.statement || rowData.Questao || '').trim();
+          const correctAnswer = String(rowData.Gabarito || rowData.CorrectAnswer || rowData.correct_answer || rowData.Resposta || '').trim().toUpperCase();
+          const chapter = String(rowData.Capitulo || rowData.Chapter || rowData.chapter || rowData.Tema || '').trim();
+          
+          // Collect options (A, B, C, D, E)
+          const options: string[] = [];
+          ['A', 'B', 'C', 'D', 'E'].forEach(letter => {
+            const option = String(rowData[letter] || rowData[`Opcao${letter}`] || rowData[`Option${letter}`] || '').trim();
+            if (option) {
+              options.push(option);
+            }
+          });
+
+          // Validate required fields
+          if (!year || isNaN(year) || !statement || !correctAnswer || options.length === 0 || !chapter) {
+            console.log(`Skipping row due to missing data:`, { year, statement: statement.substring(0, 50), correctAnswer, optionsCount: options.length, chapter });
+            skippedCount++;
+            continue;
+          }
+
+          // Validate correct answer
+          if (!['A', 'B', 'C', 'D', 'E'].includes(correctAnswer)) {
+            console.log(`Skipping row due to invalid correct answer: ${correctAnswer}`);
+            skippedCount++;
+            continue;
+          }
+
+          // Create question object
+          const question: InsertQuestion = {
+            id: randomUUID(),
+            year,
+            statement,
+            options,
+            correctAnswer,
+            chapter,
+            book: String(rowData.Livro || rowData.Book || rowData.book || 'TED').trim(),
+            section: String(rowData.Secao || rowData.Section || rowData.section || '').trim()
+          };
+
+          questions.push(question);
+          processedCount++;
+        } catch (error) {
+          console.error('Error processing row:', error);
+          skippedCount++;
+        }
+      }
+
+      if (questions.length === 0) {
+        return res.status(400).json({ 
+          message: "No valid questions found in the file. Please check the format.",
+          processed: processedCount,
+          skipped: skippedCount
+        });
+      }
+
+      // Import questions to database
+      await storage.importQuestions(questions);
+
+      console.log(`Successfully imported ${questions.length} questions`);
+      res.json({ 
+        message: `Successfully imported ${questions.length} questions`,
+        imported: questions.length,
+        processed: processedCount,
+        skipped: skippedCount
+      });
+
+    } catch (error) {
+      console.error('Error uploading questions:', error);
+      res.status(500).json({ message: "Failed to upload questions", error: String(error) });
     }
   });
 
