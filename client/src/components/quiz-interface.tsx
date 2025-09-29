@@ -184,21 +184,25 @@ export default function QuizInterface({
           </RadioGroup>
         </div>
 
-        <div className="flex justify-between items-center mt-8">
-          <Button
-            variant="ghost"
-            onClick={handlePrevious}
-            disabled={currentIndex === 0}
-            data-testid="button-previous-question"
-          >
-            <ChevronLeft className="w-4 h-4 mr-2" />
-            Anterior
-          </Button>
-
-          <div className="flex items-center space-x-4">
+        <div className="mt-8 space-y-4">
+          {/* Contador de questões em linha separada */}
+          <div className="text-center">
             <div className="text-sm text-muted-foreground" data-testid="text-answered-count">
               Respondidas: {answeredCount}/{questions.length}
             </div>
+          </div>
+          
+          {/* Botões de navegação alinhados */}
+          <div className="flex justify-between items-center">
+            <Button
+              variant="ghost"
+              onClick={handlePrevious}
+              disabled={currentIndex === 0}
+              data-testid="button-previous-question"
+            >
+              <ChevronLeft className="w-4 h-4 mr-2" />
+              Anterior
+            </Button>
             
             <Button
               variant="outline"
