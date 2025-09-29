@@ -259,9 +259,9 @@ export default function QuizSetup({ onQuizStart }: QuizSetupProps) {
                     <Slider
                       value={[questionCount]}
                       onValueChange={(value) => setQuestionCount(value[0])}
-                      min={1}
+                      min={5}
                       max={80}
-                      step={1}
+                      step={5}
                       className="flex-1"
                       data-testid="slider-question-count"
                     />
