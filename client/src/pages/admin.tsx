@@ -312,22 +312,39 @@ function QuestionsTab() {
   const { toast } = useToast();
 
   const uploadMutation = useMutation({
-    mutationFn: (formData: FormData) =>
-      fetch('/api/upload', {
+    mutationFn: (formData: FormData) => {
+      const credentials = localStorage.getItem("admin_credentials");
+      return fetch('/api/upload', {
         method: 'POST',
+        headers: {
+          'Authorization': `Basic ${credentials}`
+        },
         body: formData,
-      }),
-    onSuccess: () => {
+      });
+    },
+    onSuccess: async (response) => {
+      const result = await response.json();
       toast({
         title: "Upload realizado com sucesso",
-        description: "As questões foram importadas com sucesso.",
+        description: result.message || "As questões foram importadas com sucesso.",
       });
       setFile(null);
+      // Invalidate questions stats to refresh the data
+      queryClient.invalidateQueries({ queryKey: ['/api/questions/stats'] });
     },
-    onError: () => {
+    onError: async (error: any) => {
+      let errorMessage = "Não foi possível importar as questões.";
+      try {
+        if (error.response) {
+          const errorData = await error.response.json();
+          errorMessage = errorData.message || errorMessage;
+        }
+      } catch (e) {
+        // Use default error message
+      }
       toast({
         title: "Erro no upload",
-        description: "Não foi possível importar as questões.",
+        description: errorMessage,
         variant: "destructive",
       });
     },
