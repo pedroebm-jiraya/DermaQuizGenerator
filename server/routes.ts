@@ -4,6 +4,26 @@ import { storage } from "./storage";
 import { insertQuestionSchema, quizSetupSchema, insertQuizResultSchema, type InsertQuestion, type QuestionStats, type QuizWithQuestions, type User } from "@shared/schema";
 import { randomUUID } from "crypto";
 
+// Admin authentication middleware
+const adminAuth = (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Basic ')) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+
+  const credentials = Buffer.from(authHeader.slice(6), 'base64').toString('utf-8');
+  const [username, password] = credentials.split(':');
+
+  const adminUsername = process.env.ADMIN_USERNAME || "dermatoufs";
+  const adminPassword = process.env.ADMIN_PASSWORD || "Fedr0p0rtugal";
+
+  if (username === adminUsername && password === adminPassword) {
+    next();
+  } else {
+    res.status(401).json({ message: "Invalid credentials" });
+  }
+};
 
 // User session middleware - only for API routes
 const sessionMiddleware = async (req: Request, res: Response, next: NextFunction) => {
@@ -603,7 +623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get disagreements for admin panel
-  app.get("/api/admin/disagreements", async (req, res) => {
+  app.get("/api/admin/disagreements", adminAuth, async (req, res) => {
     try {
       const { status } = req.query;
       
@@ -621,7 +641,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update disagreement status (admin only)
-  app.patch("/api/admin/disagreements/:id", async (req, res) => {
+  app.patch("/api/admin/disagreements/:id", adminAuth, async (req, res) => {
     try {
       const { status, adminNotes } = req.body;
       

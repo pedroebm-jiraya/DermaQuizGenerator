@@ -9,6 +9,7 @@ import Quiz from "@/pages/quiz";
 import Results from "@/pages/results";
 import Review from "@/pages/review";
 import Analytics from "@/pages/analytics";
+import Admin from "@/pages/admin";
 
 function Router() {
   return (
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/quiz/:id/review" component={Review} />
       <Route path="/results/:id" component={Results} />
       <Route path="/analytics" component={Analytics} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -49,9 +49,17 @@ export default function AppHeader() {
             ))}
           </nav>
           
-          <button className="md:hidden" data-testid="button-mobile-menu">
-            <i className="fas fa-bars text-xl"></i>
-          </button>
+          <div className="flex items-center space-x-4">
+            <Link href="/admin" data-testid="link-admin">
+              <div className="w-2 h-2 bg-muted-foreground/30 rounded-full hover:bg-primary/50 transition-colors cursor-pointer" 
+                   title="Área Administrativa">
+              </div>
+            </Link>
+            
+            <button className="md:hidden" data-testid="button-mobile-menu">
+              <i className="fas fa-bars text-xl"></i>
+            </button>
+          </div>
         </div>
       </div>
     </header>

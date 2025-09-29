@@ -51,10 +51,7 @@ function DisagreementModal({ questionId, quizResultId }: { questionId: string; q
 
   const disagreementMutation = useMutation({
     mutationFn: (data: { questionId: string; quizResultId: string; type: string; description: string }) =>
-      apiRequest(`/api/disagreements`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+      apiRequest('POST', `/api/disagreements`, data),
     onSuccess: () => {
       toast({
         title: "Discordância enviada",
