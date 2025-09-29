@@ -130,7 +130,7 @@ export default function Home() {
               <h4 className="font-semibold text-foreground mb-4">Dados</h4>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>Questões: <span className="font-medium" data-testid="text-footer-questions">{stats?.totalQuestions || 0}</span></p>
-                <p>Provas: <span className="font-medium">2020-2024</span></p>
+                <p>Provas: <span className="font-medium">1995-2024</span></p>
                 <p>Capítulos: <span className="font-medium" data-testid="text-footer-chapters">{stats?.chapters?.length || 0}</span></p>
                 <p>Atualizado: <span className="font-medium">Nov 2024</span></p>
               </div>
